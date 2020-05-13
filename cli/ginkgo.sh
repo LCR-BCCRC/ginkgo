@@ -153,7 +153,7 @@ fi
 # -- Map User Provided Reference/Segmentation Sample
 # ------------------------------------------------------------------------------
 
-if [ "${SEGMENTATION}" == "2" ];
+if [ "${SEGMENTATION}" == "custom" ];
 then
     echo "run segmentation"
     ${DIR_SCRIPTS}/binUnsorted ${DIR_GENOME}/${BINNING} ${NB_BINS} ${SEGMENTATION_REF} Reference ${SEGMENTATION_REF}_mapped
