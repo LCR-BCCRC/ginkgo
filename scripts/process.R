@@ -65,7 +65,8 @@ bounds = read.table(paste("bounds_", bm, sep=""), header=FALSE, sep="\t")
 
 # Load user data
 setwd(user_dir)
-raw    = read.table(dat, header=TRUE, sep="\t")
+raw    = read.table(dat, header=TRUE, sep="\t", check.names=FALSE)
+#colnames(raw) <- sub(".", "", gsub("\\.", "/", colnames(raw)))
 ploidy = rbind(c(0,0), c(0,0))
 if (f == 1 | f == 2) {
   ploidy = read.table(facs, header=FALSE, sep="\t", as.is=TRUE)  
@@ -669,7 +670,7 @@ phylo2hclust = function(phy)
   phy  = as.hclust(clustU)
   return(phy)
 }
-
+print(cm)
 #
 if(cm == "NJ"){
   clust  = phylo2hclust(clust)
@@ -679,9 +680,10 @@ if(cm == "NJ"){
 
 write("Making heatRaw.jpeg", stderr())
 jpeg("heatRaw.jpeg", width=2000, height=1400)
+print('HEATRAW processing')
 heatmap.2(t(rawBPs), Colv=FALSE, Rowv=as.dendrogram(clust), margins=c(5,20), dendrogram="row", trace="none", xlab="Bins", ylab="Samples", cex.main=2, cex.axis=1.5, cex.lab=1.5, cexCol=.001, col=bluered(2))
 dev.off()
-
+print('HEATRAW done')
 write("Making heatNorm.jpeg", stderr())
 step=quantile(fixedBPs, c(.98))[[1]]
 jpeg("heatNorm.jpeg", width=2000, height=1400)

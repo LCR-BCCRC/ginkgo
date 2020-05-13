@@ -48,6 +48,8 @@ do
         --color         ) COLOR="$2"                                            ; shift; ;;
         --facs          ) FILE_FACS="$2"                                        ; shift; ;;
         --cells         ) DIR_CELLS_LIST="$2"                                   ; shift; ;;
+        --process       ) PROCESS=1                                             ;        ;;
+        --init          ) INIT=1                                                ;        ;;
         --maskbadbins   ) MASK_BADBINS=1                                        ;        ;;
         --masksexchrs   ) MASK_SEXCHRS=1                                        ;        ;;
         --maskpsrs      ) MASK_PSRS=1                                           ;        ;;
@@ -105,42 +107,46 @@ fi
 # -- Map Reads & Prepare Samples For Processing
 # ------------------------------------------------------------------------------
 
-# Clean directory
-rm -f ${DIR_INPUT}/{data,CNV*,Seg*,results.txt,*{_mapped,.jpeg,.newick,.xml,.cnv}}
+if [ "$INIT" == "1" ];
+then
+    # Clean directory
+    rm -f ${DIR_INPUT}/{data,CNV*,Seg*,results.txt,*{_mapped,.jpeg,.newick,.xml,.cnv}}
 
-# Map user bed files to appropriate bins
-while read file;
-do
-    echo -n "# Processing ${file}... "
+    # Map user bed files to appropriate bins
+    while read file;
+    do
+        echo -n "# Processing ${file}... "
 
-    # Make sure exists
-    if [[ ! "${file}" =~ \.bed$ ]] && [[ ! "${file}" =~ \.bed.gz$ ]]; then
-        echo "error: file <${file}> doesn't exist"
-        exit;
-    fi
-    echo ""
+        # Make sure exists
+        if [[ ! "${file}" =~ \.bed$ ]] && [[ ! "${file}" =~ \.bed.gz$ ]]; then
+            echo "error: file <${file}> doesn't exist"
+            exit;
+        fi
+        echo ""
 
-    # Add "z" to cat to support gzipped files
-    [[ "${file}" =~ \.gz$ ]] && Z="z" || Z=""
+        # Add "z" to cat to support gzipped files
+        [[ "${file}" =~ \.gz$ ]] && Z="z" || Z=""
 
-    # If bed file doesn't encode chromosomes using 'chr', add it
-    firstLineChr=$(${Z}grep --max 1 "chr" ${file} | cut -f1)
-    if [ "${firstLineChr}" == "" ];
-    then
-        echo "# -> no 'chr' detected; rewritting bed files."
-        awk '{print "chr"$0}' <( ${Z}cat ${file} ) | ( [[ ${Z} == "z" ]] && gzip || cat ) > ${file}_tmp
-        mv ${file} ${file}_invalidchr
-        mv ${file}_tmp ${file}
-    fi
+        # If bed file doesn't encode chromosomes using 'chr', add it
+        firstLineChr=$(${Z}grep --max 1 "chr" ${file} | cut -f1)
+        if [ "${firstLineChr}" == "" ];
+        then
+            echo "# -> no 'chr' detected; rewritting bed files."
+            awk '{print "chr"$0}' <( ${Z}cat ${file} ) | ( [[ ${Z} == "z" ]] && gzip || cat ) > ${file}_tmp
+            mv ${file} ${file}_invalidchr
+            mv ${file}_tmp ${file}
+        fi
 
-    # Bin reads
-    ${DIR_SCRIPTS}/binUnsorted ${DIR_GENOME}/${BINNING} ${NB_BINS} <(${Z}cat ${file}) `echo ${file} | awk -F ".bed" '{print $1}'` ${file}_mapped
-done < ${DIR_CELLS_LIST}
+        # Bin reads
+        ${DIR_SCRIPTS}/binUnsorted ${DIR_GENOME}/${BINNING} ${NB_BINS} <(${Z}cat ${file}) `echo ${file} | awk -F ".bed" '{print $1}'` ${file}_mapped
+    done < ${DIR_CELLS_LIST}
 
-# Concatenate binned reads to central file  
-echo "# Concatenating binned reads... "
-paste ${DIR_INPUT}/*_mapped > ${DIR_INPUT}/data
-rm -f ${DIR_INPUT}/*{_mapped,_binned}
+    # Concatenate binned reads to central file  
+    echo "# Concatenating binned reads... "
+    paste ${DIR_INPUT}/*_mapped > ${DIR_INPUT}/data
+    rm -f ${DIR_INPUT}/*{_mapped,_binned}
+fi
+
 
 
 # ------------------------------------------------------------------------------
@@ -149,6 +155,7 @@ rm -f ${DIR_INPUT}/*{_mapped,_binned}
 
 if [ "${SEGMENTATION}" == "2" ];
 then
+    echo "run segmentation"
     ${DIR_SCRIPTS}/binUnsorted ${DIR_GENOME}/${BINNING} ${NB_BINS} ${SEGMENTATION_REF} Reference ${SEGMENTATION_REF}_mapped
 else
     SEGMENTATION_REF=refDummy.bed
@@ -159,9 +166,12 @@ fi
 # ------------------------------------------------------------------------------
 # -- Run Mapped Data Through Primary Pipeline
 # ------------------------------------------------------------------------------
+if [ "$PROCESS" == "1" ]
+then
+    echo "launch process.R ${DIR_SCRIPTS}/process.R ${DIR_GENOME} ${DIR_INPUT} ${statFile} data ${SEGMENTATION} ${BINNING} ${CLUSTERING_LINKAGE} ${CLUSTERING_DISTANCE} ${COLOR} ${SEGMENTATION_REF}_mapped ${FACS} ${FILE_FACS} $( [[ $MASK_SEXCHRS == 1 ]] && echo 0 || echo 1 ) ${MASK_BADBINS}"
 
-${DIR_SCRIPTS}/process.R ${DIR_GENOME} ${DIR_INPUT} ${statFile} data ${SEGMENTATION} ${BINNING} ${CLUSTERING_LINKAGE} ${CLUSTERING_DISTANCE} ${COLOR} ${SEGMENTATION_REF}_mapped ${FACS} ${FILE_FACS} $( [[ $MASK_SEXCHRS == 1 ]] && echo 0 || echo 1 ) ${MASK_BADBINS}
-
+    ${DIR_SCRIPTS}/process.R ${DIR_GENOME} ${DIR_INPUT} ${statFile} data ${SEGMENTATION} ${BINNING} ${CLUSTERING_LINKAGE} ${CLUSTERING_DISTANCE} ${COLOR} ${SEGMENTATION_REF}_mapped ${FACS} ${FILE_FACS} $( [[ $MASK_SEXCHRS == 1 ]] && echo 0 || echo 1 ) ${MASK_BADBINS}
+fi
 
 # ------------------------------------------------------------------------------
 # -- Create CNV profiles
