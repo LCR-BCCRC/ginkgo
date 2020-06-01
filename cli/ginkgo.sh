@@ -47,7 +47,7 @@ do
         --ref           ) SEGMENTATION_REF="$2"                                 ; shift; ;;
         --color         ) COLOR="$2"                                            ; shift; ;;
         --facs          ) FILE_FACS="$2"                                        ; shift; ;;
-        --cells         ) DIR_CELLS_LIST="$2"                                   ; shift; ;;
+        --cells         ) CELLS_LIST="$2"                                       ; shift; ;;
         --process       ) PROCESS=1                                             ;        ;;
         --init          ) INIT=1                                                ;        ;;
         --maskbadbins   ) MASK_BADBINS=1                                        ;        ;;
@@ -59,9 +59,11 @@ do
 done
 
 # Validate required parameters
+DIR_INPUT=$( pwd )/${DIR_INPUT} # make absolute path
 DIR_INPUT=${DIR_INPUT?$usage}
 GENOME=${GENOME?$usage}
 BINNING=${BINNING?$usage}
+CELL_LIST=$( pwd )/${CELL_LIST}
 
 
 # ------------------------------------------------------------------------------
@@ -74,11 +76,15 @@ statFile=status.xml
 [[ ! -d "${DIR_INPUT}" ]] && echo "Error: folder ${DIR_INPUT} doesn't exist" && exit
 
 # By default, use all cells
-if [ -z "${DIR_CELLS_LIST}" ];
+if [ -z "${CELLS_LIST}" ];
 then
     DIR_CELLS_LIST=${DIR_INPUT}/"list"
     ls ${DIR_INPUT}/*.{bed,bed.gz} 2>/dev/null | cat > "${DIR_CELLS_LIST}"
+else
+    DIR_CELLS_LIST=${CELLS_LIST}
+
 fi
+echo ${DIR_CELLS_LIST}
 
 # Genomes directory
 DIR_GENOME=${DIR_GENOMES}/${GENOME}
@@ -139,6 +145,7 @@ then
 
         # Bin reads
         ${DIR_SCRIPTS}/binUnsorted ${DIR_GENOME}/${BINNING} ${NB_BINS} <(${Z}cat ${file}) `echo ${file} | awk -F ".bed" '{print $1}'` ${file}_mapped
+        echo "${file}_mapped"
     done < ${DIR_CELLS_LIST}
 
     # Concatenate binned reads to central file  
@@ -166,6 +173,8 @@ fi
 # ------------------------------------------------------------------------------
 # -- Run Mapped Data Through Primary Pipeline
 # ------------------------------------------------------------------------------
+# ENSURE gplots is downloaded from github
+
 if [ "$PROCESS" == "1" ]
 then
     echo "launch process.R ${DIR_SCRIPTS}/process.R ${DIR_GENOME} ${DIR_INPUT} ${statFile} data ${SEGMENTATION} ${BINNING} ${CLUSTERING_LINKAGE} ${CLUSTERING_DISTANCE} ${COLOR} ${SEGMENTATION_REF}_mapped ${FACS} ${FILE_FACS} $( [[ $MASK_SEXCHRS == 1 ]] && echo 0 || echo 1 ) ${MASK_BADBINS}"
